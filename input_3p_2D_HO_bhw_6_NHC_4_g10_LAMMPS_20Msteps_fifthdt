@@ -1,0 +1,97 @@
+#Unites and dims
+units electron
+dimension 2
+boundary p p p 
+atom_style atomic
+atom_modify sort 0 0.0 map yes
+
+#User-defined parameters
+
+#Time step is in femtoseconds
+timestep 1
+#Define temperature in Kelvin 
+variable Temp equal 5.8
+#Define force constant
+variable k equal 1.21647924e-8
+#Number of beads
+variable Nbeads equal 72.0
+variable ibead uloop ${Nbeads} pad
+
+#Create box and atoms. All distances are in Bohr
+region box block -1500 1500 -1500 1500 -1500 1500
+create_box 1 box
+create_atoms 1 single 50.0 0.0 0.0
+create_atoms 1 single 0.0 0.0 0.0
+create_atoms 1 single -50.0 0.0 0.0
+
+#Mass is in amu. This is the electron mass in amu
+mass 1 0.00054858
+
+#read_restart restart
+
+#Non-interacting particles
+#pair_style      none
+#communicate single cutoff 1.5
+#pair_coeff * * 1.0 0.0 ${sigma}
+#pair_coeff * * 0.1 0.0 3.0
+pair_style gauss/cut 100.0
+pair_coeff * * 0.11847868996475956 0.0 33.67207052340757
+
+#Initialize velocities
+#velocity all create ${Temp} 87287 
+velocity all create ${Temp} 123456${ibead} mom yes rot yes dist gaussian
+
+#Define variables for force constants
+variable fx atom -v_k*x
+variable fy atom -v_k*y
+#variable fz atom -v_k*z
+#variable harm3d atom 0.5*v_k*(x^2+y^2+z^2)
+variable harm2d atom 0.5*v_k*(x^2+y^2)
+#variable harm1d atom 0.5*v_k*(x^2)
+
+#Add harmonic external force
+#fix harm all addforce v_fx v_fy v_fz energy v_harm3d
+fix harm all addforce v_fx v_fy 0.0 energy v_harm2d
+#Add harmonic potential energy to total energy and potential energy
+fix_modify harm energy yes
+
+#write trajectory
+#dump id all atom 1000 traj.lmpstrj
+
+#restart 1000 restartA restartB
+#restart 1000 system_${ibead}.restart1 system_${ibead}.restart2
+
+#dump xyz files
+#dump 1 all xyz 1000 dump.xyz
+#dump forces all custom 100 f_${ibead}.xyz fx fy fz
+dump xyz all xyz 100 system_${ibead}.xyz
+#variable 1 atom "(fx^2 + fy^2 + fz^2)"
+#dump fnorm all custom 100 fn_${ibead}.xyz v_1
+
+
+# For PLUMED2
+#fix 22 all plumed plumedfile plumed.dat outfile plumed.out
+
+#fix 22 all nve
+#fix 12 all pimd2 method pimd fmass 1.0 sp 1.0 temp ${Temp} nhc 4
+#fix 14 all gle 6 ${Temp} ${Temp} 123321${ibead} smart.A
+fix 12 all pimdb method nmpimd fmass 1.0 sp 1.0 temp ${Temp} nhc 4
+
+#print thermodynamics info to log file every n steps
+thermo_style custom step time temp ke pe etotal fmax fnorm
+thermo 100
+
+#compute 1 all property/local natom1 
+#compute 2 all property/local natom2
+#dump 4 all local 100 neigh_${ibead}.xyz c_1 c_2
+
+#
+fix 5 all enforce2d
+run             20000000
+
+#write_restart restart_metad
+
+
+
+
+
